@@ -12,7 +12,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = False
+debug = True
 if not debug: 
     tello.takeoff()
 
@@ -47,7 +47,7 @@ y_controller = PID(0.1, 0, 0)
 y_controller.send(None)
 
 #Pool Noodle Thresholds
-lower_blue = np.array([0, 0, 0])
+lower_blue = np.array([10, 150, 0])
 upper_blue = np.array([30, 255, 255])
 
 lower_orange = np.array([100, 150, 100])
@@ -78,14 +78,13 @@ def main():
         res = frame
 
         hoop = Hoop(frame, lower_blue, upper_blue)
+        print(hoop.seenHoop)
 
-        if len(hoop.contours) > 0:
-            c = hoop.contour
-            if c.shape[0] > 5:
-                ellipse = hoop.ellipse
-                cv.ellipse(res, ellipse, (0, 255, 0), 5)
-            rectX,rectY,rectW,rectH = hoop.rect
+        if hoop.seenHoop:
             res = hoop.res
+            c = hoop.contour
+            cv.ellipse(res, hoop.ellipse, (0, 255, 0), 5)
+            rectX,rectY,rectW,rectH = hoop.rect
             cv.drawContours(res, hoop.contours, -1, (255, 0, 0), 2) #Green fitted ellipse
             cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
             cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
