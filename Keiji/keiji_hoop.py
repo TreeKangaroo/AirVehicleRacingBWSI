@@ -12,7 +12,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = True
+debug = False
 if not debug: 
     tello.takeoff()
 
@@ -37,7 +37,7 @@ def PID(Kp, Ki, Kd, MV_bar=0):
 yaw_controller = PID(0.2, 0, 0.02)
 yaw_controller.send(None)
 
-z_controller = PID(0.1, 0, 0.02)
+z_controller = PID(0.1, 0, 0.05)
 z_controller.send(None)
 
 x_controller = PID(100, 0, 0)
@@ -64,7 +64,6 @@ def get_input():
         inp = input()
         print(inp)
 
-
 yaw = 0
 z = 0
 y = 0
@@ -74,34 +73,24 @@ def main():
     while inp != 'q':
         t = time.time()
         frame = tello.get_frame_read().frame
+        frameCenter = (frame.shape[1] // 2, frame.shape[0] //2)
         res = frame
 
         hoop = Hoop(frame, lower_blue, upper_blue)
 
-        # hsv = cv.cvtColor(frame, cv.COLOR_RGB2HSV)
-        # mask = cv.inRange(hsv, lower_blue, upper_blue)
-        # mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
-        # mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
-        # mask = cv.erode(mask, kernel, iterations=1)
-        # res = cv.bitwise_and(frame, frame, mask=mask)
-
-        frameCenter = (frame.shape[1] // 2, frame.shape[0] //2)
-        # contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-
         if len(hoop.contours) > 0:
             c = hoop.contour
-
-            # x,y,w,h = cv.boundingRect(c)
             if c.shape[0] > 5:
                 ellipse = hoop.ellipse
                 cv.ellipse(res, ellipse, (0, 255, 0), 5)
-            x,y,w,h = hoop.rect
+            rectX,rectY,rectW,rectH = hoop.rect
             res = hoop.res
             cv.drawContours(res, hoop.contours, -1, (255, 0, 0), 2) #Green fitted ellipse
-            cv.rectangle(res,(x,y),(x+w,y+h),(0,255,0),5) #Green bounding rectangle
+            cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
             cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
 
-            z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
+            z = int(z_controller.send((t, hoop.center[1], frameCenter[1] - 100)))
+            #x = int(x_controller.send((t, hoop.center[0], frameCenter[0])))
         
         if not debug: tello.send_rc_control(x, y, z, yaw)
 
@@ -114,6 +103,7 @@ def main():
             break
     print('ENDING')
     tello.end()
+    quit()
 
 if __name__=='__main__':
     t1 = threading.Thread(target=main)
