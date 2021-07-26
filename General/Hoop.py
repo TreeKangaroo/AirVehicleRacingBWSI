@@ -26,7 +26,7 @@ class Hoop:
     
         
         self.contours, hierarchy = cv2.findContours(self.mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
+        
         if len(self.contours)>0:
             self.contour = max(self.contours, key = cv2.contourArea)
             x,y,w,h = cv2.boundingRect(self.contour)

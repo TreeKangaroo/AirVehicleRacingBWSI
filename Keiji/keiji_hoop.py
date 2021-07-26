@@ -40,7 +40,7 @@ yaw_controller.send(None)
 z_controller = PID(0.1, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(100, 0, 0)
+x_controller = PID(0.1, 0, 0.01)
 x_controller.send(None)
 
 y_controller = PID(0.1, 0, 0)
@@ -64,12 +64,13 @@ def get_input():
         inp = input()
         print(inp)
 
-yaw = 0
-z = 0
-y = 0
-x = 0
+
 def main():
     global inp
+    yaw = 0
+    z = 0
+    y = 0
+    x = 0
     while inp != 'q':
         t = time.time()
         frame = tello.get_frame_read().frame
@@ -90,7 +91,7 @@ def main():
             cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
 
             z = int(z_controller.send((t, hoop.center[1], frameCenter[1] - 100)))
-            #x = int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+            x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
         
         if not debug: tello.send_rc_control(x, y, z, yaw)
 
