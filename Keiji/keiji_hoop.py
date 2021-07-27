@@ -49,7 +49,7 @@ y_controller = PID(0.1, 0, 0)
 y_controller.send(None)
 
 #Pool Noodle Thresholds
-lower_blue = np.array([10, 120, 0])
+lower_blue = np.array([10, 100, 0])
 upper_blue = np.array([30, 255, 255])
 
 lower_orange = np.array([100, 150, 100])
@@ -74,15 +74,23 @@ def main():
     y = 0
     x = 0
     state = 0
+    count = 0
     print("State 0: Line up with noodle")
     while inp != 'q':
         t = time.time()
         frame = tello.get_frame_read().frame
         frameCenter = (frame.shape[1] // 2, frame.shape[0] //2)
         res = frame
-        hoop = Hoop(frame, lower_blue, upper_blue)
+
+        if count%3 == 0:
+            hoop = Hoop(frame, lower_blue, upper_blue)
+        elif count%3 == 1:
+            hoop = Hoop(frame, lower_green, upper_green)
+        else:
+            hoop = Hoop(frame, lower_orange, upper_orange)
+
         if state == 0: #Line up with noodle
-            y = 0
+            y = 10
             if hoop.seenHoop:
                 res = hoop.res
                 c = hoop.contour
@@ -98,7 +106,7 @@ def main():
                 z_error = abs(frameCenter[1] - 120 - hoop.center[1])
                 x_error = abs(frameCenter[0] - hoop.center[0])
 
-                if (z_error < 70 and x_error < 70): 
+                if (z_error < 50 and x_error < 50): 
                     state = 1
                     print("State 1: Approach noodle")
         elif state == 1:
@@ -114,12 +122,13 @@ def main():
             yaw = 0
             x = 0
             z = 0
-            y = 50
+            y = 100
             if time.time() - lastSeen >= 1:
                 state = 3
                 print("State 3: Land")
         else:
-            break
+            count += 1
+            state = 0
 
         if not debug: tello.send_rc_control(x, y, z, yaw)
 

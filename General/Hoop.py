@@ -23,6 +23,7 @@ class Hoop:
         kernel = np.ones((20,20),np.uint8)
         self.mask = cv2.morphologyEx(self.mask, cv2.MORPH_OPEN, kernel)
         self.mask = cv2.morphologyEx(self.mask, cv2.MORPH_CLOSE, kernel)
+        self.mask = cv2.dilate(self.mask, kernel, iterations=1)
         self.res = cv2.bitwise_and(img, img, mask=self.mask)
     
         
@@ -36,7 +37,7 @@ class Hoop:
             if self.contour.shape[0] > 5:
                 self.ellipse = cv2.fitEllipse(self.contour)
                 self.area = int(self.ellipse[1][0] * self.ellipse[1][1] * math.pi)
-                if self.area > 500:
+                if self.area > 10000:
                     self.seenHoop = True
                 self.center = (int(self.ellipse[0][0]), int(self.ellipse[0][1]))
             else:
