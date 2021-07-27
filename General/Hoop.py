@@ -23,7 +23,6 @@ class Hoop:
         kernel = np.ones((20,20),np.uint8)
         self.mask = cv2.morphologyEx(self.mask, cv2.MORPH_OPEN, kernel)
         self.mask = cv2.morphologyEx(self.mask, cv2.MORPH_CLOSE, kernel)
-        self.mask = cv2.dilate(self.mask, kernel, iterations=1)
         self.res = cv2.bitwise_and(img, img, mask=self.mask)
     
         

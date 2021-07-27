@@ -13,7 +13,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = False
+debug = True
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -42,7 +42,7 @@ yaw_controller.send(None)
 z_controller = PID(0.1, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.1, 0, 0.01)
+x_controller = PID(0.1, 0, 0.03)
 x_controller.send(None)
 
 y_controller = PID(0.1, 0, 0)
@@ -75,11 +75,13 @@ def main():
     x = 0
     state = 0
     count = 0
+    target = 90
+    targetOffset = 150
     print("State 0: Line up with noodle")
     while inp != 'q':
         t = time.time()
         frame = tello.get_frame_read().frame
-        frameCenter = (frame.shape[1] // 2, frame.shape[0] //2)
+        frameCenter = (frame.shape[1] // 2, frame.shape[0] //2 - targetOffset)
         res = frame
 
         if count%3 == 0:
@@ -100,18 +102,19 @@ def main():
                 cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
                 cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
 
-                z = int(z_controller.send((t, hoop.center[1], frameCenter[1] - 120)))
+                z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
 
-                z_error = abs(frameCenter[1] - 120 - hoop.center[1])
-                x_error = abs(frameCenter[0] - hoop.center[0])
-
-                if (z_error < 50 and x_error < 50): 
-                    state = 1
+                z_error = frameCenter[1] - hoop.center[1]
+                x_error = frameCenter[0] - hoop.center[0]
+                error_mag = math.sqrt(z_error**2 + x_error**2)
+                print(z_error, x_error, error_mag)
+                if (error_mag < target): 
+                    #state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
-            if hoop.seenHoop:
+            if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
                 z = 0 #int(z_controller.send((t, hoop.center[1], frameCenter[1] - 120)))
                 x = 0 #-1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
             else:
@@ -123,7 +126,7 @@ def main():
             x = 0
             z = 0
             y = 100
-            if time.time() - lastSeen >= 1:
+            if time.time() - lastSeen >= 0.5:
                 state = 3
                 print("State 3: Land")
         else:
@@ -132,7 +135,8 @@ def main():
 
         if not debug: tello.send_rc_control(x, y, z, yaw)
 
-        cv.circle(res, frameCenter, 5, (0, 0, 255), -1) #Blue circle in center of screen
+        cv.line(res, frameCenter, (frameCenter[0]+x, frameCenter[1]-z), (0, 0, 255), 2)#Movement vector representation
+        cv.circle(res, frameCenter, target, (0, 0, 255), 2) #Red circle of target radius
         cv.imshow("camera", res)
         key = cv.waitKey(1)
         if key & 0xFF == ord('q'):
