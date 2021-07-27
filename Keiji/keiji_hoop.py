@@ -13,7 +13,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = True
+debug = False
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -30,7 +30,7 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         I = I + Ki*e*(t - t_prev)
         D = Kd*(e - e_prev)/(t - t_prev)
         MV = MV_bar + P + I + D
-        #print(f'MV:{int(MV)} P:{int(P)} I:{int(I)} D:{int(D)} e:{e} e_prev:{e_prev}')
+        print(f'MV:{int(MV)} P:{int(P)} I:{int(I)} D:{int(D)} e:{e} e_prev:{e_prev}')
 
         e_prev = e
         t_prev = t
@@ -39,10 +39,10 @@ def PID(Kp, Ki, Kd, MV_bar=0):
 yaw_controller = PID(0.2, 0, 0.02)
 yaw_controller.send(None)
 
-z_controller = PID(0.1, 0, 0.05)
+z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.1, 0, 0.03)
+x_controller = PID(0.12, 0, 0.03)
 x_controller.send(None)
 
 y_controller = PID(0.1, 0, 0)
@@ -75,7 +75,7 @@ def main():
     x = 0
     state = 0
     count = 0
-    target = 90
+    target = 50
     targetOffset = 150
     print("State 0: Line up with noodle")
     while inp != 'q':
@@ -92,7 +92,7 @@ def main():
             hoop = Hoop(frame, lower_orange, upper_orange)
 
         if state == 0: #Line up with noodle
-            y = 10
+            y = 0
             if hoop.seenHoop:
                 res = hoop.res
                 c = hoop.contour
@@ -109,14 +109,16 @@ def main():
                 x_error = frameCenter[0] - hoop.center[0]
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 print(z_error, x_error, error_mag)
-                if (error_mag < target): 
-                    #state = 1 #Comment out this line to debug with a single hoop
+                if (error_mag < target and y < 20 and z < 20): 
+                    state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
             if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
-                z = 0 #int(z_controller.send((t, hoop.center[1], frameCenter[1] - 120)))
-                x = 0 #-1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                z = int(z_controller.send((t, hoop.center[1], frameCenter[1] - 120)))
+                x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                if abs(z) > 20: z = 0
+                if abs(x) > 20: x = 0
             else:
                 state = 2
                 lastSeen = time.time()
@@ -125,10 +127,10 @@ def main():
             yaw = 0
             x = 0
             z = 0
-            y = 100
-            if time.time() - lastSeen >= 0.5:
+            y = 50
+            if time.time() - lastSeen >= 0.2:
                 state = 3
-                print("State 3: Land")
+                print("State 3: Next Hoop")
         else:
             count += 1
             state = 0
