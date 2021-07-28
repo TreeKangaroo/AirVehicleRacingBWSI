@@ -1,3 +1,4 @@
+from warnings import resetwarnings
 from djitellopy import Tello
 import cv2 as cv
 import numpy as np
@@ -13,7 +14,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = False
+debug = True
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -30,7 +31,7 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         I = I + Ki*e*(t - t_prev)
         D = Kd*(e - e_prev)/(t - t_prev)
         MV = MV_bar + P + I + D
-        print(f'MV:{int(MV)} P:{int(P)} I:{int(I)} D:{int(D)} e:{e} e_prev:{e_prev}')
+        #print(f'MV:{int(MV)} P:{int(P)} I:{int(I)} D:{int(D)} e:{e} e_prev:{e_prev}')
 
         e_prev = e
         t_prev = t
@@ -94,6 +95,7 @@ def main():
         if state == 0: #Line up with noodle
             y = 0
             if hoop.seenHoop:
+
                 res = hoop.res
                 c = hoop.contour
                 cv.ellipse(res, hoop.ellipse, (0, 255, 0), 5)
@@ -102,15 +104,19 @@ def main():
                 cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
                 cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
 
+                cv.line(res, hoop.center, tuple(hoop.imgpts[0,0]), (255,0,0),5)
+                cv.line(res, hoop.center, tuple(hoop.imgpts[1,0]), (0,255,0), 5)
+                cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
+
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
 
                 z_error = frameCenter[1] - hoop.center[1]
                 x_error = frameCenter[0] - hoop.center[0]
                 error_mag = math.sqrt(z_error**2 + x_error**2)
-                print(z_error, x_error, error_mag)
+                #print(z_error, x_error, error_mag)
                 if (error_mag < target and y < 20 and z < 20): 
-                    state = 1 #Comment out this line to debug with a single hoop
+                    #state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
