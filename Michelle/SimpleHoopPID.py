@@ -37,13 +37,13 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.02, 0, 0.02)
+yaw_controller = PID(0.36, 0, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
 z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.12, 0, 0.03)
+x_controller = PID(0.1, 0, 0.03)
 x_controller.send(None)
 
 y_controller = PID(0.1, 0, 0)
@@ -74,9 +74,10 @@ def main():
     z = 0
     y = 0
     x = 0
+    last_yaw=0
     state = 0
     count = 0
-    target = 50
+    target = 40
     targetOffset = 150
     print("State 0: Line up with noodle")
     while inp != 'q':
@@ -113,7 +114,10 @@ def main():
                 #distance=(np.sum(hoop.tvecs**2))**0.5
                 
                 #z_pitchcomp=y*pitch_ratio
-                
+                if yaw_angle>last_yaw:
+                    yaw_angle=-1*yaw_angle
+                    last_yaw=yaw_angle
+                    
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
                 yaw=int(yaw_controller.send((t, yaw_angle, 0)))
@@ -122,12 +126,14 @@ def main():
                 x_error = frameCenter[0] - hoop.center[0]
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 #print(z_error, x_error, error_mag)
-                if (error_mag < target and x < 20 and z < 20 and yaw<10): 
-                    #state = 1 #Comment out this line to debug with a single hoop
+                if (error_mag < target and x < 20 and z < 20 and yaw<15): 
+                    state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
             if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
+                yaw_angle=abs(int(hoop.euler[1]))
+                
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
 
