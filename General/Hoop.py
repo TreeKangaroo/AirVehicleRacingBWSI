@@ -43,7 +43,7 @@ class Hoop:
             if self.contour.shape[0] > 5:
                 self.ellipse = cv2.fitEllipse(self.contour)
                 self.area = int(self.ellipse[1][0] * self.ellipse[1][1] * math.pi)
-                if self.area > 100000: #Hopefully this is the full hoop
+                if self.area > 1000: #Hopefully this is the full hoop
                     self.seenHoop = True
                     self.center = (int(self.ellipse[0][0]), int(self.ellipse[0][1]))
                     self.euler, self.rvecs, self.tvecs = self.find_pos_ori()
