@@ -103,7 +103,8 @@ def main():
                 cv.drawContours(res, hoop.contours, -1, (255, 0, 0), 2) #Green fitted ellipse
                 cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
                 cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
-
+                
+                #Draw Hoop Axes
                 cv.line(res, hoop.center, tuple(hoop.imgpts[0,0]), (255,0,0),5)
                 cv.line(res, hoop.center, tuple(hoop.imgpts[1,0]), (0,255,0), 5)
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
@@ -111,17 +112,19 @@ def main():
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
 
+                print(hoop.euler)
+
                 z_error = frameCenter[1] - hoop.center[1]
                 x_error = frameCenter[0] - hoop.center[0]
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 #print(z_error, x_error, error_mag)
-                if (error_mag < target and y < 20 and z < 20): 
+                if (error_mag < target and x < 20 and z < 20): 
                     #state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
             if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
-                z = int(z_controller.send((t, hoop.center[1], frameCenter[1] - 120)))
+                z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
                 if abs(z) > 20: z = 0
                 if abs(x) > 20: x = 0
