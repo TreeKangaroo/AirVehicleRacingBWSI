@@ -85,8 +85,7 @@ class Hoop:
         
         #Solve pose
         _, rvecs, tvecs = cv2.solvePnP(objp, imgpoints, camera_matrix, dist_coef,flags= cv2.SOLVEPNP_ITERATIVE)
-        print(rvecs)
-        print(tvecs)
+
         #some more processing
         R=cv2.Rodrigues(rvecs)[0]
         # Checks if a matrix is a valid rotation matrix.
@@ -117,9 +116,19 @@ class Hoop:
             #y corresponds to tello's up/down
             #z corresponds to tello's forward/back
             #rotation is in euler angles x,y,z in degrees
-            return np.array([x, y, z]), tvecs[0,0], tvecs[1,0], tvecs[2,0]
+            return np.array([x, y, z]), rvecs, tvecs
         
         pass
+    
+    def project_axes(self,rvecs,tvecs,axis_length=20):
+        import numpy as np
+        import cv2
+    
+        axis = np.float32([[axis_length,0,0], [0,axis_length,0], [0,0,-axis_length]]).reshape(-1,3)
+        imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, self.camera_matrix, self.dist_coef)
+        imgpts=imgpts.astype(int)
+        
+        return imgpts
 
 
 
