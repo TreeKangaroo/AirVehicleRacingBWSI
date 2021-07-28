@@ -14,7 +14,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = True
+debug = False
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -37,10 +37,10 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.2, 0, 0.02)
+yaw_controller = PID(0.5, 0, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
-z_controller = PID(0.2, 0, 0.05)
+z_controller = PID(0.3, 0, 0.05)
 z_controller.send(None)
 
 x_controller = PID(0.12, 0, 0.03)
@@ -76,8 +76,8 @@ def main():
     x = 0
     state = 0
     count = 0
-    target = 50
-    targetOffset = 150
+    target = 30
+    targetOffset = 160
     print("State 0: Line up with noodle")
     while inp != 'q':
         t = time.time()
@@ -97,7 +97,6 @@ def main():
             if hoop.seenHoop:
 
                 res = hoop.res
-                c = hoop.contour
                 cv.ellipse(res, hoop.ellipse, (0, 255, 0), 5)
                 rectX,rectY,rectW,rectH = hoop.rect
                 cv.drawContours(res, hoop.contours, -1, (255, 0, 0), 2) #Green fitted ellipse
@@ -109,17 +108,23 @@ def main():
                 cv.line(res, hoop.center, tuple(hoop.imgpts[1,0]), (0,255,0), 5)
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
 
+
+                # pitch_ratio=abs(math.tan(hoop.euler[0]))
+                yaw_angle=abs(int(hoop.euler[1]))
+                #distance=(np.sum(hoop.tvecs**2))**0.5
+                
+                #z_pitchcomp=y*pitch_ratio
+                print(yaw_angle)
+
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
-
-                print(hoop.euler)
+                yaw = -1 * int(yaw_controller.send((t, yaw_angle, 0)))
 
                 z_error = frameCenter[1] - hoop.center[1]
                 x_error = frameCenter[0] - hoop.center[0]
                 error_mag = math.sqrt(z_error**2 + x_error**2)
-                #print(z_error, x_error, error_mag)
-                if (error_mag < target and x < 20 and z < 20): 
-                    #state = 1 #Comment out this line to debug with a single hoop
+                if (error_mag < target and x < 20 and z < 20 and yaw < 15): 
+                    state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
