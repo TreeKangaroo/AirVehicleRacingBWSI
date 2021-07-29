@@ -79,7 +79,7 @@ def main():
     
     last_yaw=0
     target_distance = 150
-    kyawx=3
+    kyawx=1
     
     state = 0
     count = 0
@@ -117,9 +117,9 @@ def main():
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
                 
                     
-                pitch_ratio=abs(math.tan(hoop.euler[0]))
-                yaw_angle=abs(int(hoop.euler[1]))
-                #yaw_comp_x=kyawx*math.sin(yaw_angle)
+                #pitch_ratio=abs(math.tan(hoop.euler[0]))
+                yaw_angle=abs(hoop.euler[1])
+                yaw_comp_x=kyawx*math.sin(yaw_angle)
                 distance=(np.sum(hoop.tvecs**2))**0.5
                 
                 #z_pitchcomp=y*pitch_ratio
@@ -128,7 +128,7 @@ def main():
                     last_yaw=abs(yaw_angle)
                     
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
-                x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
                 y = -1*int(y_controller.send((t, distance, target_distance)))
                 yaw=int(yaw_controller.send((t, yaw_angle, 0)))
                 
