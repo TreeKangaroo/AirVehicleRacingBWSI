@@ -42,13 +42,13 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.75, -0.0000000000000025, 0.1, MV_bar=5)
+yaw_controller = PID(0.9, -0.0000000000000025, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
 z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.08,-0.000000000005, 0.05)
+x_controller = PID(0.09,-0.000000000006, 0.05)
 x_controller.send(None)
 
 y_controller = PID(0.5, 0, 0.03)
