@@ -19,7 +19,7 @@ frameHt = frame_generator.cap.get(cv.CAP_PROP_FRAME_HEIGHT)
 
 frame=frame_generator.frame
 inp = '0'
-debug = True
+debug = False
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -42,13 +42,13 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.5, -0.0000000000000025, 0.1, MV_bar=5)
+yaw_controller = PID(0.75, -0.0000000000000025, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
 z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.1,-0.000000000005, 0.05)
+x_controller = PID(0.08,-0.000000000005, 0.05)
 x_controller.send(None)
 
 y_controller = PID(0.5, 0, 0.03)
@@ -90,11 +90,12 @@ def main():
     targetOffset = 140
     font = cv.FONT_HERSHEY_SIMPLEX
     print("State 0: Line up with noodle")
-    streamWriter = cv.VideoWriter('samplevideo.avi', cv.VideoWriter_fourcc('M', 'J', 'P', 'G'), 10, (int(frameWidth), int(frameHt)))
+    streamWriter1 = cv.VideoWriter('maksed.avi', cv.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (int(frameWidth), int(frameHt)))
+    streamWriter2 = cv.VideoWriter('nomask.avi', cv.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (int(frameWidth), int(frameHt)))
     while inp != 'q':
         t = time.time()
         frame = frame_generator.frame
-        
+        streamWriter2.write(frame)
         frameCenter = (frame.shape[1] // 2, frame.shape[0] //2 - targetOffset)
         res = frame
 
@@ -135,7 +136,10 @@ def main():
                 yaw_comp_x=kyawx*math.sin(yaw_angle)
                     
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
-                x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
+                if abs(yaw_angle)<20:
+                     x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
+                else:
+                    x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
                 y = -1*int(y_controller.send((t, distance, target_distance)))
                 yaw=int(yaw_controller.send((t, yaw_angle, 0)))
                 
@@ -153,8 +157,8 @@ def main():
                 distance_error = abs(distance - target_distance)
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 #print(z_error, x_error, error_mag)
-                if (error_mag < target and x < 20 and z < 20 and yaw<15 and distance_error<20): 
-                    #state = 1 #Comment out this line to debug with a single hoop
+                if (error_mag < target and abs(x) < 20 and abs(z) < 20 and abs(yaw)<10 and distance_error<20): 
+                    state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
         elif state == 1:
             y = 50
@@ -187,17 +191,20 @@ def main():
 
         cv.line(res, frameCenter, (frameCenter[0]+x, frameCenter[1]-z), (0, 0, 255), 2)#Movement vector representation
         cv.circle(res, frameCenter, target, (0, 0, 255), 2) #Red circle of target radius
-        streamWriter.write(res)
+        streamWriter1.write(res)
+
         cv.imshow("camera", res)
         
         key = cv.waitKey(1)
         if key & 0xFF == ord('q'):
-            streamWriter.release()
+            streamWriter1.release()
+            streamWriter2.release()
             print("DONE")
             tello.end()
             break
     print('ENDING')
-    streamWriter.release()
+    streamWriter1.release()
+    streamWriter2.release()
     tello.send_rc_control(0,0,0,0)
     tello.end()
     exit()
