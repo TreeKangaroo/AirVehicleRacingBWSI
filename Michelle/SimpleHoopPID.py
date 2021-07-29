@@ -39,13 +39,13 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.3, -0.000000000000002, 0.1, MV_bar=5)
+yaw_controller = PID(0.4, -0.000000000000002, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
 z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.07,-0.000000000005, 0.05)
+x_controller = PID(0.1,-0.000000000005, 0.05)
 x_controller.send(None)
 
 y_controller = PID(0.5, 0, 0.03)
@@ -117,7 +117,7 @@ def main():
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
                 
                     
-                #pitch_ratio=abs(math.tan(hoop.euler[0]))
+                pitch_ratio=abs(math.tan(hoop.euler[0]))
                 yaw_angle=abs(hoop.euler[1])
                 yaw_comp_x=kyawx*math.sin(yaw_angle)
                 distance=(np.sum(hoop.tvecs**2))**0.5
@@ -127,14 +127,16 @@ def main():
                     yaw_angle=-1*yaw_angle
                     last_yaw=abs(yaw_angle)
                     
+                yaw_comp_x=kyawx*math.sin(yaw_angle)
+                    
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
-                x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
+                x = -1 * int(x_controller.send((t, hoop.center[0]+yaw_comp_x, frameCenter[0])))
                 y = -1*int(y_controller.send((t, distance, target_distance)))
                 yaw=int(yaw_controller.send((t, yaw_angle, 0)))
                 
                 if (rectY < 80): textOrigin = (rectX, rectY + rectH + 40)
                 else: textOrigin = (rectX, rectY-10)
-                hoopText = 'Pitch:{:4d} Yaw:{:3d} Dist:{}'.format(int(hoop.euler[0]), yaw_angle, distance)
+                hoopText = 'Pitch:{:4d} Yaw:{:3f} Dist:{}'.format(int(hoop.euler[0]), yaw_angle, distance)
                 cv.putText(res, hoopText, textOrigin, font, 0.75, (255, 255, 255), 2, cv.LINE_AA)
 
                 bottomText = 'State:{} X:{:3d} Y:{:3d} Z:{:3d} Yaw: {:3d} PitchRatio:{:.3f}'.format(state, x, y, z, yaw, pitch_ratio)
