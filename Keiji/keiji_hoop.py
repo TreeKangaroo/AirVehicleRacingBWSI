@@ -14,7 +14,7 @@ tello.connect()
 print(tello.get_battery())
 tello.streamon()
 inp = '0'
-debug = False
+debug = True
 if not debug: 
     tello.send_rc_control(0,0,0,0)
     tello.takeoff()
@@ -37,13 +37,13 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.5, 0, 0.1, MV_bar=5)
+yaw_controller = PID(0.3, -0.000000000000002, 0.1, MV_bar=5)
 yaw_controller.send(None)
 
-z_controller = PID(0.3, 0, 0.05)
+z_controller = PID(0.2, 0, 0.05)
 z_controller.send(None)
 
-x_controller = PID(0.12, 0, 0.03)
+x_controller = PID(0.05, -0.000000000005, 0.05)
 x_controller.send(None)
 
 y_controller = PID(0.1, 0, 0)
@@ -78,6 +78,8 @@ def main():
     count = 0
     target = 30
     targetOffset = 160
+    last_yaw=0
+    font = cv.FONT_HERSHEY_SIMPLEX
     print("State 0: Line up with noodle")
     while inp != 'q':
         t = time.time()
@@ -100,7 +102,7 @@ def main():
                 cv.ellipse(res, hoop.ellipse, (0, 255, 0), 5)
                 rectX,rectY,rectW,rectH = hoop.rect
                 cv.drawContours(res, hoop.contours, -1, (255, 0, 0), 2) #Green fitted ellipse
-                cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
+                #cv.rectangle(res,(rectX,rectY),(rectX+rectW,rectY+rectH),(0,255,0),5) #Green bounding rectangle
                 cv.circle(res, hoop.center, 5, (255, 0, 0), -1) #Red circle in center of hoop
                 
                 #Draw Hoop Axes
@@ -108,17 +110,28 @@ def main():
                 cv.line(res, hoop.center, tuple(hoop.imgpts[1,0]), (0,255,0), 5)
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
 
-
-                # pitch_ratio=abs(math.tan(hoop.euler[0]))
+                pitch_ratio=abs(math.tan(hoop.euler[0]))
                 yaw_angle=abs(int(hoop.euler[1]))
-                #distance=(np.sum(hoop.tvecs**2))**0.5
+                distance=int((np.sum(hoop.tvecs**2))**0.5)
                 
                 #z_pitchcomp=y*pitch_ratio
-                print(yaw_angle)
+                if yaw_angle>last_yaw:
+                    yaw_angle=-1*yaw_angle
+                    last_yaw=yaw_angle
+                #print(yaw_angle)
 
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
                 yaw = -1 * int(yaw_controller.send((t, yaw_angle, 0)))
+
+                if (rectY < 80): textOrigin = (rectX, rectY + rectH + 40)
+                else: textOrigin = (rectX, rectY-10)
+                hoopText = 'Pitch:{:4d} Yaw:{:3d} Dist:{}'.format(int(hoop.euler[0]), yaw_angle, distance)
+                cv.putText(res, hoopText, textOrigin, font, 0.75, (255, 255, 255), 2, cv.LINE_AA)
+
+                bottomText = 'State:{} X:{:3d} Y:{:3d} Z:{:3d} Yaw: {:3d} PitchRatio:{:.3f}'.format(state, x, y, z, yaw, pitch_ratio)
+                print(bottomText)
+                cv.putText(res, bottomText, (0,40), font, 1, (255, 255, 255), 2, cv.LINE_AA)
 
                 z_error = frameCenter[1] - hoop.center[1]
                 x_error = frameCenter[0] - hoop.center[0]
