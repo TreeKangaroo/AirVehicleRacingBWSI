@@ -42,16 +42,16 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.9, -0.0000000000000025, 0.1, MV_bar=5)
+yaw_controller = PID(0.9, 0.0000000000000000025, 0.16)
 yaw_controller.send(None)
 
-z_controller = PID(0.2, 0, 0.05)
+z_controller = PID(0.2, -0.0000000000000000000000005, 0.08)
 z_controller.send(None)
 
-x_controller = PID(0.09,-0.000000000006, 0.05)
+x_controller = PID(0.09,-0.0000000000062, 0.05)
 x_controller.send(None)
 
-y_controller = PID(0.5, 0, 0.03)
+y_controller = PID(0.6, 0, 0.07)
 y_controller.send(None)
 
 #Pool Noodle Thresholds
@@ -80,14 +80,20 @@ def main():
     y = 0
     x = 0
     
-    last_yaw=0
-    target_distance = 150
+    last_yaw_angle=180
+    last_avg_yaw=180
+    last_yaw_comm_sign=-1
     kyawx=2
+    yaws=np.zeros([4])
+    pid_count=0
+    avg_yaw=0
+    avg_yaw_diff=0
     
     state = 0
     count = 0
-    target = 30
-    targetOffset = 140
+    target = 40
+    targetOffset = 130
+    target_distance = 100
     font = cv.FONT_HERSHEY_SIMPLEX
     print("State 0: Line up with noodle")
     streamWriter1 = cv.VideoWriter('maksed.avi', cv.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (int(frameWidth), int(frameHt)))
@@ -108,6 +114,7 @@ def main():
 
         if state == 0: #Line up with noodle
             y = 20
+            
             if hoop.seenHoop:
 
                 res = hoop.res
@@ -123,32 +130,58 @@ def main():
                 cv.line(res, hoop.center, tuple(hoop.imgpts[2,0]),(0,0,255), 5)
                 
                     
-                pitch_ratio=abs(math.tan(hoop.euler[0]))
+                #pitch_ratio=abs(math.tan(hoop.euler[0]))
                 yaw_angle=abs(hoop.euler[1])
-                yaw_comp_x=kyawx*math.sin(yaw_angle)
+                
                 distance=(np.sum(hoop.tvecs**2))**0.5
                 
+                if yaw_angle>last_yaw_angle+30:
+                    yaw_angle=last_yaw_angle
                 #z_pitchcomp=y*pitch_ratio
-                if yaw_angle>last_yaw+10:
-                    yaw_angle=-1*yaw_angle
-                    last_yaw=abs(yaw_angle)
+                
                     
-                yaw_comp_x=kyawx*math.sin(yaw_angle)
+                if pid_count==0:
+                    yaws[pid_count]=yaw_angle
+                    pid_count=3
+                    avg_yaw=np.mean(yaws)
+                    avg_yaw_diff=max(yaws)-min(yaws)
+                    yaw_comp_x=kyawx*math.sin(avg_yaw)
                     
-                z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
-                if abs(yaw_angle)<20:
-                     x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
+                    if avg_yaw>last_avg_yaw:
+                        yaw=last_yaw_comm_sign*-1*int(yaw_controller.send((t, avg_yaw, 0)))
+                        print('-------------------command inverted-------------------')
+                        if avg_yaw<20:
+                            x = -1 * int(x_controller.send((t, hoop.center[0]+yaw_comp_x, frameCenter[0])))
+                        else:
+                            x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                        
+
+                    else:
+                        yaw=last_yaw_comm_sign*int(yaw_controller.send((t, avg_yaw, 0)))
+                        print('-------------------command same----------------------')
+                        if avg_yaw<20:
+                             x = -1 * int(x_controller.send((t, hoop.center[0]-yaw_comp_x, frameCenter[0])))
+                        else:
+                            x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                    
+                    last_yaw_angle=yaw_angle
+                    last_avg_yaw=avg_yaw
+                    
                 else:
-                    x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
+                   yaws[pid_count]=yaw_angle 
+                   pid_count=pid_count-1
+                   last_yaw_angle=yaw_angle
+                
                 y = -1*int(y_controller.send((t, distance, target_distance)))
-                yaw=int(yaw_controller.send((t, yaw_angle, 0)))
+                z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
+                
                 
                 if (rectY < 80): textOrigin = (rectX, rectY + rectH + 40)
                 else: textOrigin = (rectX, rectY-10)
-                hoopText = 'Pitch:{:4d} Yaw:{:3f} Dist:{}'.format(int(hoop.euler[0]), yaw_angle, distance)
+                hoopText = 'Pitch:{:4d} Yaw:{:3f} Dist:{}'.format(int(hoop.euler[0]), avg_yaw, distance)
                 cv.putText(res, hoopText, textOrigin, font, 0.75, (255, 255, 255), 2, cv.LINE_AA)
 
-                bottomText = 'State:{} X:{:3d} Y:{:3d} Z:{:3d} Yaw: {:3d} YawAngle:{:.3f}'.format(state, x, y, z, yaw, yaw_angle)
+                bottomText = 'State:{} X:{:3d} Y:{:3d} Z:{:3d} Yaw: {:3d} AvgYawDiff:{:.3f}'.format(state, x, y, z, yaw, avg_yaw_diff)
                 print(bottomText)
                 cv.putText(res, bottomText, (0,40), font, 1, (255, 255, 255), 2, cv.LINE_AA)
 
@@ -157,14 +190,15 @@ def main():
                 distance_error = abs(distance - target_distance)
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 #print(z_error, x_error, error_mag)
-                if (error_mag < target and abs(x) < 20 and abs(z) < 20 and abs(yaw)<10 and distance_error<20): 
+                if (error_mag < target and abs(x) < 20 and abs(z) < 20 and abs(yaw)<10 and distance_error<30): 
                     state = 1 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
+
         elif state == 1:
             y = 50
+            yaw=0
             if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
                 yaw_angle=abs(int(hoop.euler[1]))
-                
                 z = int(z_controller.send((t, hoop.center[1], frameCenter[1])))
                 x = -1 * int(x_controller.send((t, hoop.center[0], frameCenter[0])))
 
@@ -180,14 +214,22 @@ def main():
             x = 0
             z = 0
             y = 50
-            if time.time() - lastSeen >= 0.2:
+            if time.time() - lastSeen >= 0.02:
                 state = 3
                 print("State 3: Next Hoop")
         else:
             count += 1
             state = 0
+            last_yaw_angle=180
+            last_avg_yaw=180
 
         if not debug: tello.send_rc_control(x, y, z, yaw)
+       
+        if yaw>=0: 
+            last_yaw_comm_sign=1
+        else:
+            last_yaw_comm_sign=-1
+        
 
         cv.line(res, frameCenter, (frameCenter[0]+x, frameCenter[1]-z), (0, 0, 255), 2)#Movement vector representation
         cv.circle(res, frameCenter, target, (0, 0, 255), 2) #Red circle of target radius
