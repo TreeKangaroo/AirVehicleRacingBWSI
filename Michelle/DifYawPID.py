@@ -9,6 +9,9 @@ import math
 sys.path.append('../')
 from General.Hoop import Hoop
 
+global reset
+reset=True
+
 tello = Tello()
 tello.connect()
 print(tello.get_battery())
@@ -30,6 +33,9 @@ def PID(Kp, Ki, Kd, MV_bar=0):
     I = 0
     MV = MV_bar
     while True:
+        global reset
+        if reset==True:
+            I=0
         t, PV, SP = yield MV
         e = SP - PV
         P = Kp * e
@@ -42,13 +48,14 @@ def PID(Kp, Ki, Kd, MV_bar=0):
         t_prev = t
 
 #PID Values
-yaw_controller = PID(0.7, -0.00000000000025, 0.1)
+        #-0.00000000000025
+yaw_controller = PID(0.7, -0.00000000025, 0.1)
 yaw_controller.send(None)
 
-z_controller = PID(0.2, -0.0000000000000000000000005, 0.08)
+z_controller = PID(0.2, 0.0000000000000000000000005, 0.08)
 z_controller.send(None)
 
-x_controller = PID(0.08,-0.000000000006, 0.05)
+x_controller = PID(0.08,0.000000000000031, 0.05)
 x_controller.send(None)
 
 y_controller = PID(0.6, 0, 0.07)
@@ -58,14 +65,13 @@ y_controller.send(None)
 lower_green = np.array([70, 50, 70])
 upper_green = np.array([95, 255, 255])
 
-lower_blue = np.array([0, 30, 30])
+lower_blue = np.array([0, 30, 0])
 upper_blue = np.array([50, 255, 255])
 
-lower_orange = np.array([110, 20, 70])
+lower_orange = np.array([108, 20, 70])
 upper_orange = np.array([125, 255, 230])
 
 kernel = np.ones((20,20),np.uint8)
-
 def get_input():
     global inp
     while True:
@@ -83,7 +89,7 @@ def main():
 
     kyawx=2
     yaws=np.zeros([4])
-    num_pyaw=15
+    num_pyaw=10
     previous_yaws=np.zeros(num_pyaw)
     previous_yaw_count=0
     pid_count=0
@@ -92,9 +98,9 @@ def main():
     slope=0
     
     state = 0
-    count = 0
+    count = 2
     target = 45
-    targetOffset = 115
+    targetOffset = 200
     target_distance = 100
     font = cv.FONT_HERSHEY_SIMPLEX
     print("State 0: Line up with noodle")
@@ -107,16 +113,30 @@ def main():
         frameCenter = (frame.shape[1] // 2, frame.shape[0] //2 - targetOffset)
         res = frame
 
-        if count%3 == 0:
-            hoop = Hoop(frame, lower_blue, upper_blue)
-        elif count%3 == 1:
-            hoop = Hoop(frame, lower_green, upper_green)
-        else:
+        if count%5 == 0:
             hoop = Hoop(frame, lower_orange, upper_orange)
+        elif count%5==1:
+            hoop = Hoop(frame, lower_green, upper_green)
+        elif count%5==2:
+            hoop = Hoop(frame, lower_blue, upper_blue)
+        elif count%5==3:
+            hoop = Hoop(frame, lower_green, upper_green)
+        elif count%5==4:
+            hoop = Hoop(frame, lower_blue, upper_blue)
 
+        global reset
+        reset = False
         if state == 0: #Line up with noodle
-            y = 20
-            
+            y = 0
+            x=0
+            z=0
+            yaw=-30
+            if hoop.seenHoop:
+                state=1
+                yaw=1
+                print('Saw hoop')
+        
+        elif state==1: 
             if hoop.seenHoop:
 
                 res = hoop.res
@@ -199,11 +219,11 @@ def main():
                 distance_error = abs(distance - target_distance)
                 error_mag = math.sqrt(z_error**2 + x_error**2)
                 #print(z_error, x_error, error_mag)
-                if (error_mag < target and abs(x) < 20 and abs(z) < 20 and abs(yaw)<15 and abs(avg_yaw)<10 and distance_error<30): 
-                    state = 1 #Comment out this line to debug with a single hoop
+                if (error_mag < target and abs(x) < 20 and abs(z) < 20 and abs(avg_yaw)<7 and distance_error<30): 
+                    state = 2 #Comment out this line to debug with a single hoop
                     print("State 1: Approach noodle")
 
-        elif state == 1:
+        elif state == 2:
             y = 50
             yaw=0
             if hoop.seenHoop: #Don't correct position anymore because ellipse becomes wonky closeup
@@ -215,22 +235,25 @@ def main():
                 if abs(x) > 20: x = 0
 
             else:
-                state = 2
+                state = 3
                 lastSeen = time.time()
-                print("State 2: Fly through noodle")
-        elif state == 2:
+                print("State 3: Fly through noodle")
+        elif state == 3:
             yaw = 0
             x = 0
             z = 0
             y = 50
-            if time.time() - lastSeen >= 0.02:
-                state = 3
+            if time.time() - lastSeen >= distance/10000:
+                state = 4
                 print("State 3: Next Hoop")
         else:
             count += 1
             state = 0
             previous_yaws=np.zeros([num_pyaw])
             previous_yaw_count=0
+            
+            reset = True
+
 
         if not debug: tello.send_rc_control(x, y, z, yaw)
               
